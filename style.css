@@ -1,0 +1,182 @@
+#preset_batch_manager_settings .inline-drawer-content {
+    padding: 0.35rem 0.25rem 0.75rem;
+}
+
+#preset_batch_manager_settings .pbm-description,
+#preset_batch_manager_settings .pbm-notice,
+#preset_batch_manager_settings .pbm-status {
+    line-height: 1.45;
+}
+
+#preset_batch_manager_settings .pbm-description {
+    margin: 0.25rem 0 0.65rem;
+}
+
+#preset_batch_manager_settings .pbm-toolbar {
+    display: flex;
+    gap: 0.45rem;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+#preset_batch_manager_settings .pbm-toolbar-top {
+    flex-wrap: nowrap;
+}
+
+#preset_batch_manager_settings .pbm-toolbar-top .pbm-search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#preset_batch_manager_settings .pbm-toolbar .menu_button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.35rem;
+    margin: 0;
+}
+
+#preset_batch_manager_settings .pbm-selection-tools {
+    margin-top: 0.5rem;
+}
+
+#preset_batch_manager_settings .pbm-selection-tools .menu_button {
+    flex: 1 1 10rem;
+}
+
+#preset_batch_manager_settings .pbm-summary {
+    margin: 0.65rem 0 0.35rem;
+    font-size: 0.9em;
+    opacity: 0.78;
+}
+
+#preset_batch_manager_settings .pbm-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: min(42vh, 25rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.4rem;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    border-radius: 0.6rem;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+#preset_batch_manager_settings .pbm-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.45rem;
+    padding: 0.42rem 0.55rem;
+    border-radius: 0.45rem;
+    background: var(--black30a, rgba(0, 0, 0, 0.16));
+    cursor: pointer;
+    user-select: none;
+}
+
+#preset_batch_manager_settings .pbm-preset-row:hover {
+    background: var(--black50a, rgba(0, 0, 0, 0.25));
+}
+
+#preset_batch_manager_settings .pbm-preset-checkbox {
+    width: 1.15rem;
+    height: 1.15rem;
+    flex: 0 0 auto;
+    margin: 0;
+    accent-color: var(--SmartThemeQuoteColor, #7aa2f7);
+}
+
+#preset_batch_manager_settings .pbm-preset-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+#preset_batch_manager_settings .pbm-current-badge {
+    flex: 0 0 auto;
+    padding: 0.13rem 0.42rem;
+    border-radius: 999px;
+    color: var(--SmartThemeBodyColor, inherit);
+    background: var(--SmartThemeQuoteColor, #576a91);
+    font-size: 0.76em;
+    font-weight: 700;
+}
+
+#preset_batch_manager_settings .pbm-empty {
+    padding: 1.2rem 0.5rem;
+    text-align: center;
+    opacity: 0.7;
+}
+
+#preset_batch_manager_settings .pbm-actions {
+    margin-top: 0.65rem;
+}
+
+#preset_batch_manager_settings .pbm-actions .menu_button {
+    flex: 1 1 7rem;
+}
+
+#preset_batch_manager_settings .pbm-notice {
+    margin-top: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.45rem;
+    background: rgba(255, 193, 7, 0.1);
+    font-size: 0.84em;
+    opacity: 0.9;
+}
+
+#preset_batch_manager_settings .pbm-status {
+    min-height: 1.4em;
+    margin-top: 0.45rem;
+    font-size: 0.86em;
+    opacity: 0.82;
+}
+
+#preset_batch_manager_settings .pbm-status[data-tone="success"] {
+    color: #76d18b;
+}
+
+#preset_batch_manager_settings .pbm-status[data-tone="warning"] {
+    color: #f2c96d;
+}
+
+#preset_batch_manager_settings .pbm-status[data-tone="error"] {
+    color: #ff7d7d;
+}
+
+#preset_batch_manager_settings.pbm-is-busy {
+    cursor: wait;
+}
+
+#preset_batch_manager_settings button:disabled,
+#preset_batch_manager_settings input:disabled {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.pbm-confirm-list {
+    max-height: 16rem;
+    overflow-y: auto;
+    text-align: left;
+}
+
+@media (max-width: 600px) {
+    #preset_batch_manager_settings .pbm-toolbar-top .pbm-refresh span {
+        display: none;
+    }
+
+    #preset_batch_manager_settings .pbm-toolbar-top .pbm-refresh {
+        flex: 0 0 2.6rem;
+        min-width: 2.6rem;
+    }
+
+    #preset_batch_manager_settings .pbm-actions .menu_button {
+        flex-basis: calc(50% - 0.25rem);
+    }
+
+    #preset_batch_manager_settings .pbm-actions .pbm-delete {
+        flex-basis: 100%;
+    }
+}
