@@ -187,12 +187,122 @@ function buildBackupBundle(names) {
     };
 }
 
+function buildBackupFiles(names) {
+    const manager = getManager();
+    const usedFilenames = new Set();
+
+    return names.map(name => {
+        const preset = structuredClone(manager.getCompletionPresetByName(name));
+        if (!preset || typeof preset !== 'object') return null;
+
+        const base = safeFilenamePart(name);
+        let filename = `${base}.json`;
+        let duplicateNumber = 2;
+        while (usedFilenames.has(filename.toLocaleLowerCase())) {
+            filename = `${base} (${duplicateNumber++}).json`;
+        }
+        usedFilenames.add(filename.toLocaleLowerCase());
+
+        return {
+            name,
+            filename,
+            text: JSON.stringify(preset, null, 4),
+        };
+    }).filter(Boolean);
+}
+
 function safeFilenamePart(value) {
     return String(value).replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 50) || 'presets';
 }
 
 function downloadJson(data, filename) {
     const blob = new Blob([JSON.stringify(data, null, 4)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (const byte of bytes) {
+        crc ^= byte;
+        for (let bit = 0; bit < 8; bit++) {
+            crc = (crc >>> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
+        }
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function concatBytes(parts) {
+    const output = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
+    let offset = 0;
+    for (const part of parts) {
+        output.set(part, offset);
+        offset += part.length;
+    }
+    return output;
+}
+
+function makeZip(files) {
+    const encoder = new TextEncoder();
+    const localParts = [];
+    const centralParts = [];
+    let localOffset = 0;
+
+    for (const file of files) {
+        const nameBytes = encoder.encode(file.filename);
+        const dataBytes = encoder.encode(file.text);
+        const checksum = crc32(dataBytes);
+
+        const localHeader = new Uint8Array(30 + nameBytes.length);
+        const localView = new DataView(localHeader.buffer);
+        localView.setUint32(0, 0x04034B50, true);
+        localView.setUint16(4, 20, true);
+        localView.setUint16(6, 0x0800, true);
+        localView.setUint16(8, 0, true);
+        localView.setUint32(14, checksum, true);
+        localView.setUint32(18, dataBytes.length, true);
+        localView.setUint32(22, dataBytes.length, true);
+        localView.setUint16(26, nameBytes.length, true);
+        localHeader.set(nameBytes, 30);
+        localParts.push(localHeader, dataBytes);
+
+        const centralHeader = new Uint8Array(46 + nameBytes.length);
+        const centralView = new DataView(centralHeader.buffer);
+        centralView.setUint32(0, 0x02014B50, true);
+        centralView.setUint16(4, 20, true);
+        centralView.setUint16(6, 20, true);
+        centralView.setUint16(8, 0x0800, true);
+        centralView.setUint16(10, 0, true);
+        centralView.setUint32(16, checksum, true);
+        centralView.setUint32(20, dataBytes.length, true);
+        centralView.setUint32(24, dataBytes.length, true);
+        centralView.setUint16(28, nameBytes.length, true);
+        centralView.setUint32(42, localOffset, true);
+        centralHeader.set(nameBytes, 46);
+        centralParts.push(centralHeader);
+
+        localOffset += localHeader.length + dataBytes.length;
+    }
+
+    const centralDirectory = concatBytes(centralParts);
+    const endRecord = new Uint8Array(22);
+    const endView = new DataView(endRecord.buffer);
+    endView.setUint32(0, 0x06054B50, true);
+    endView.setUint16(8, files.length, true);
+    endView.setUint16(10, files.length, true);
+    endView.setUint32(12, centralDirectory.length, true);
+    endView.setUint32(16, localOffset, true);
+
+    return new Blob([...localParts, centralDirectory, endRecord], { type: 'application/zip' });
+}
+
+function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -210,17 +320,79 @@ function backupSelected() {
         return false;
     }
 
-    const bundle = buildBackupBundle(names);
-    if (!bundle.presets.length) {
+    const files = buildBackupFiles(names);
+    if (!files.length) {
         toast('error', '선택한 프리셋 데이터를 읽지 못했어.');
         return false;
     }
 
     const firstName = safeFilenamePart(names[0]);
     const suffix = names.length > 1 ? `_외_${names.length - 1}개` : '';
-    downloadJson(bundle, `ChatCompletion_프리셋_백업_${firstName}${suffix}.json`);
-    toast('success', `${bundle.presets.length}개 프리셋을 백업했어.`);
+    downloadBlob(makeZip(files), `ChatCompletion_프리셋_백업_${firstName}${suffix}.zip`);
+    toast('success', `${files.length}개 프리셋을 개별 JSON 파일로 백업했어.`);
     return true;
+}
+
+function readStoredZipFiles(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    const decoder = new TextDecoder();
+    let endOffset = -1;
+
+    for (let offset = Math.max(0, bytes.length - 65557); offset <= bytes.length - 22; offset++) {
+        if (view.getUint32(offset, true) === 0x06054B50) endOffset = offset;
+    }
+    if (endOffset < 0) throw new Error('올바른 ZIP 백업 파일이 아님');
+
+    const entryCount = view.getUint16(endOffset + 10, true);
+    let centralOffset = view.getUint32(endOffset + 16, true);
+    const files = [];
+
+    for (let index = 0; index < entryCount; index++) {
+        if (view.getUint32(centralOffset, true) !== 0x02014B50) {
+            throw new Error('ZIP 파일 목록을 읽지 못했어');
+        }
+        const method = view.getUint16(centralOffset + 10, true);
+        const compressedSize = view.getUint32(centralOffset + 20, true);
+        const nameLength = view.getUint16(centralOffset + 28, true);
+        const extraLength = view.getUint16(centralOffset + 30, true);
+        const commentLength = view.getUint16(centralOffset + 32, true);
+        const localOffset = view.getUint32(centralOffset + 42, true);
+        const filename = decoder.decode(bytes.slice(centralOffset + 46, centralOffset + 46 + nameLength));
+
+        if (method !== 0) throw new Error('이 확장에서 만든 ZIP 백업만 복원할 수 있어');
+        if (view.getUint32(localOffset, true) !== 0x04034B50) throw new Error('ZIP 내부 파일이 손상됐어');
+        const localNameLength = view.getUint16(localOffset + 26, true);
+        const localExtraLength = view.getUint16(localOffset + 28, true);
+        const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
+
+        if (filename.toLocaleLowerCase().endsWith('.json')) {
+            files.push({
+                filename,
+                text: decoder.decode(bytes.slice(dataOffset, dataOffset + compressedSize)),
+            });
+        }
+        centralOffset += 46 + nameLength + extraLength + commentLength;
+    }
+    return files;
+}
+
+async function readBackupItems(file) {
+    if (file.name.toLocaleLowerCase().endsWith('.zip')) {
+        return readStoredZipFiles(await file.arrayBuffer()).map(entry => ({
+            name: entry.filename.split('/').pop().replace(/\.json$/i, ''),
+            preset: JSON.parse(entry.text),
+        }));
+    }
+
+    const data = JSON.parse(await file.text());
+    if (data?.format === BUNDLE_FORMAT && data?.version === 1 && Array.isArray(data?.presets)) {
+        return data.presets;
+    }
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+        return [{ name: file.name.replace(/\.json$/i, ''), preset: data }];
+    }
+    throw new Error('지원하지 않는 백업 파일 형식');
 }
 
 async function restoreBackup(file) {
@@ -229,28 +401,26 @@ async function restoreBackup(file) {
     setStatus('백업 파일을 확인하는 중…');
 
     try {
-        const bundle = JSON.parse(await file.text());
-        const valid = bundle?.format === BUNDLE_FORMAT
-            && bundle?.version === 1
-            && Array.isArray(bundle?.presets)
-            && bundle.presets.every(item => typeof item?.name === 'string' && item?.preset && typeof item.preset === 'object');
+        const presets = await readBackupItems(file);
+        const valid = Array.isArray(presets)
+            && presets.every(item => typeof item?.name === 'string' && item?.preset && typeof item.preset === 'object');
 
         if (!valid) {
             throw new Error('지원하지 않는 백업 파일 형식');
         }
-        if (!bundle.presets.length) {
+        if (!presets.length) {
             throw new Error('백업 파일에 프리셋이 없음');
         }
 
         const existingNames = new Set(readPresetRows().map(row => row.name));
-        const overwriteCount = bundle.presets.filter(item => existingNames.has(item.name)).length;
+        const overwriteCount = presets.filter(item => existingNames.has(item.name)).length;
         const detail = overwriteCount
             ? `<p>같은 이름의 프리셋 ${overwriteCount}개는 백업 내용으로 덮어써.</p>`
             : '<p>같은 이름의 프리셋은 없어.</p>';
         const confirmed = await confirmAction(
-            `프리셋 ${bundle.presets.length}개 복원`,
+            `프리셋 ${presets.length}개 복원`,
             `<p>이 백업을 Chat Completion 프리셋으로 복원할까?</p>${detail}`,
-            `프리셋 ${bundle.presets.length}개를 복원할까?`,
+            `프리셋 ${presets.length}개를 복원할까?`,
         );
 
         if (!confirmed) {
@@ -259,13 +429,13 @@ async function restoreBackup(file) {
         }
 
         const manager = getManager();
-        for (let index = 0; index < bundle.presets.length; index++) {
-            const item = bundle.presets[index];
-            setStatus(`복원 중 ${index + 1}/${bundle.presets.length} · ${item.name}`);
+        for (let index = 0; index < presets.length; index++) {
+            const item = presets[index];
+            setStatus(`복원 중 ${index + 1}/${presets.length} · ${item.name}`);
             await manager.savePreset(item.name, item.preset, { skipUpdate: true });
         }
 
-        toast('success', `${bundle.presets.length}개 프리셋을 복원했어. 목록을 다시 불러올게.`);
+        toast('success', `${presets.length}개 프리셋을 복원했어. 목록을 다시 불러올게.`);
         setStatus('복원 완료. 화면을 새로고침하는 중…', 'success');
         setTimeout(() => globalThis.location.reload(), 500);
     } catch (error) {
@@ -422,7 +592,7 @@ function createSettings() {
                     <button class="menu_button redWarningBG pbm-delete" type="button">
                         <i class="fa-solid fa-trash"></i><span>선택 삭제</span>
                     </button>
-                    <input class="pbm-restore-input" type="file" accept="application/json,.json" hidden>
+                    <input class="pbm-restore-input" type="file" accept="application/json,application/zip,.json,.zip" hidden>
                 </div>
                 <div class="pbm-notice">삭제는 영구적이야. 중요한 프리셋은 먼저 ‘선택 백업’으로 저장해줘. 백업에는 프록시 주소 같은 프리셋 설정이 포함될 수 있어.</div>
                 <div class="pbm-status" aria-live="polite"></div>
