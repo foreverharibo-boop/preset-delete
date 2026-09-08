@@ -569,7 +569,6 @@ function createSettings() {
                 <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
             </div>
             <div class="inline-drawer-content">
-                <p class="pbm-description">프롬프트가 들어 있는 Chat Completion 프리셋을 여러 개 골라 한 번에 삭제해.</p>
                 <div class="pbm-toolbar pbm-toolbar-top">
                     <input class="text_pole pbm-search" type="search" placeholder="프리셋 이름 검색" autocomplete="off">
                     <button class="menu_button pbm-refresh" type="button" title="목록 새로고침">
@@ -594,8 +593,7 @@ function createSettings() {
                     </button>
                     <input class="pbm-restore-input" type="file" accept="application/json,application/zip,.json,.zip" hidden>
                 </div>
-                <div class="pbm-notice">삭제는 영구적이야. 중요한 프리셋은 먼저 ‘선택 백업’으로 저장해줘. 백업에는 프록시 주소 같은 프리셋 설정이 포함될 수 있어.</div>
-                <div class="pbm-status" aria-live="polite"></div>
+                <div class="pbm-notice">삭제 전 중요한 프리셋을 백업해 주세요.</div>
             </div>
         </div>`;
     return root;
