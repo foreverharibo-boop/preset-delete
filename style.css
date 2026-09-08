@@ -71,13 +71,14 @@
     min-height: 2.45rem;
     padding: 0.42rem 0.55rem;
     border-radius: 0.45rem;
-    background: var(--black30a, rgba(0, 0, 0, 0.16));
+    color: #222;
+    background: #fff;
     cursor: pointer;
     user-select: none;
 }
 
 #preset_batch_manager_settings .pbm-preset-row:hover {
-    background: var(--black50a, rgba(0, 0, 0, 0.25));
+    background: #f3f3f3;
 }
 
 #preset_batch_manager_settings .pbm-preset-checkbox {
