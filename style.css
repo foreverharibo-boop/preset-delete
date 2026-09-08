@@ -71,14 +71,15 @@
     min-height: 2.45rem;
     padding: 0.42rem 0.55rem;
     border-radius: 0.45rem;
-    color: #222;
-    background: #fff;
+    color: var(--SmartThemeBodyColor, inherit);
+    background: var(--SmartThemeBlurTintColor, transparent);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(128, 128, 128, 0.35));
     cursor: pointer;
     user-select: none;
 }
 
 #preset_batch_manager_settings .pbm-preset-row:hover {
-    background: #f3f3f3;
+    border-color: var(--SmartThemeQuoteColor, var(--SmartThemeBorderColor, currentColor));
 }
 
 #preset_batch_manager_settings .pbm-preset-checkbox {
